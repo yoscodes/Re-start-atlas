@@ -152,3 +152,8 @@ restart-atlas/
 ## ライセンス
 
 MIT
+<<<<<<< HEAD
+=======
+>>>>>>> 15ad3d6 (リスタート・アトラス)
+# Re-start-atlas
+>>>>>>> ac01e2f (first commit)
