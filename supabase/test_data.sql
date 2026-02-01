@@ -1,0 +1,145 @@
+-- ============================================
+-- テストデータ投入用SQL
+-- マイグレーション実行後、動作確認用に使用
+-- ============================================
+
+-- ⚠️ 注意: このスクリプトを実行する前に、認証経由でユーザーを作成してください
+-- 1. アプリでサインアップ（http://localhost:3000/auth/signup）
+-- 2. 作成されたユーザーIDを確認（Supabase Dashboard → Authentication → Users）
+-- 3. 以下のクエリでユーザーIDを置き換えて実行
+
+-- ============================================
+-- ステップ1: ユーザーIDの確認
+-- ============================================
+-- 以下のクエリでユーザーIDを取得してください
+-- SELECT id, email FROM auth.users LIMIT 1;
+
+-- ============================================
+-- ステップ2: テストユーザープロフィールの作成
+-- ============================================
+-- 実際のユーザーIDに置き換えてください
+-- INSERT INTO public.users (id, display_name, phase_level)
+-- VALUES (
+--   '00000000-0000-0000-0000-000000000000'::uuid, -- ← 実際のユーザーIDに置き換え
+--   'テストユーザー',
+--   2
+-- )
+-- ON CONFLICT (id) DO UPDATE SET
+--   display_name = EXCLUDED.display_name,
+--   phase_level = EXCLUDED.phase_level;
+
+-- ============================================
+-- ステップ3: テスト投稿の作成
+-- ============================================
+-- 実際のユーザーIDに置き換えてください
+-- INSERT INTO public.recovery_posts (
+--   user_id,
+--   title,
+--   summary,
+--   problem_category,
+--   phase_at_post,
+--   started_at,
+--   recovered_at,
+--   current_status
+-- ) VALUES (
+--   '00000000-0000-0000-0000-000000000000'::uuid, -- ← 実際のユーザーIDに置き換え
+--   '借金300万円からの回復',
+--   '25歳の時に借金を抱え、実家に戻って返済を開始しました。家族のサポートと節約生活で3年かけて完済しました。',
+--   'debt',
+--   2,
+--   '2021-01-01',
+--   '2024-01-01',
+--   '完済しました。現在は貯金に回しています。'
+-- )
+-- RETURNING id;
+
+-- ============================================
+-- ステップ4: 回復ステップの追加
+-- ============================================
+-- 上記のクエリで返された投稿IDを使用してください
+-- INSERT INTO public.recovery_steps (
+--   post_id,
+--   step_order,
+--   content,
+--   is_failure
+-- ) VALUES
+--   ('00000000-0000-0000-0000-000000000000'::uuid, 1, '実家に戻って生活費を削減', false),
+--   ('00000000-0000-0000-0000-000000000000'::uuid, 2, 'アルバイトを2つ掛け持ち', false),
+--   ('00000000-0000-0000-0000-000000000000'::uuid, 3, 'クレジットカードを解約（失敗: すぐに再発行してしまった）', true),
+--   ('00000000-0000-0000-0000-000000000000'::uuid, 4, '家計簿アプリで支出を可視化', false),
+--   ('00000000-0000-0000-0000-000000000000'::uuid, 5, '毎月の返済額を固定して計画を立てる', false);
+
+-- ============================================
+-- ステップ5: 地域の関連付け
+-- ============================================
+-- 投稿IDと地域IDを指定してください
+-- INSERT INTO public.post_regions (post_id, region_id)
+-- VALUES (
+--   '00000000-0000-0000-0000-000000000000'::uuid, -- ← 投稿ID
+--   13 -- ← 東京都のID（regionsテーブルから確認）
+-- );
+
+-- ============================================
+-- ステップ6: タグの作成と関連付け
+-- ============================================
+-- タグの作成
+-- INSERT INTO public.tags (name) VALUES
+--   ('#25歳'),
+--   ('#借金300万'),
+--   ('#実家暮らし'),
+--   ('#完済')
+-- ON CONFLICT (name) DO NOTHING;
+
+-- タグと投稿の関連付け
+-- INSERT INTO public.post_tags (post_id, tag_id)
+-- SELECT 
+--   '00000000-0000-0000-0000-000000000000'::uuid, -- ← 投稿ID
+--   id
+-- FROM public.tags
+-- WHERE name IN ('#25歳', '#借金300万', '#実家暮らし', '#完済');
+
+-- ============================================
+-- ステップ7: データの確認
+-- ============================================
+-- 作成した投稿と関連データを確認
+-- SELECT 
+--   rp.id,
+--   rp.title,
+--   u.display_name,
+--   rp.problem_category,
+--   rp.phase_at_post,
+--   rp.current_status,
+--   COUNT(DISTINCT rs.id) as steps_count,
+--   COUNT(DISTINCT pt.tag_id) as tags_count,
+--   COUNT(DISTINCT c.id) as comments_count,
+--   COUNT(DISTINCT r.id) as reactions_count
+-- FROM recovery_posts rp
+-- JOIN users u ON rp.user_id = u.id
+-- LEFT JOIN recovery_steps rs ON rp.id = rs.post_id
+-- LEFT JOIN post_tags pt ON rp.id = pt.post_id
+-- LEFT JOIN comments c ON rp.id = c.post_id
+-- LEFT JOIN reactions r ON rp.id = r.post_id
+-- WHERE rp.user_id = '00000000-0000-0000-0000-000000000000'::uuid -- ← ユーザーID
+-- GROUP BY rp.id, rp.title, u.display_name, rp.problem_category, rp.phase_at_post, rp.current_status;
+
+-- ============================================
+-- クリーンアップ（テストデータを削除する場合）
+-- ============================================
+-- 注意: このクエリは全てのテストデータを削除します
+-- DELETE FROM reactions WHERE post_id IN (
+--   SELECT id FROM recovery_posts WHERE user_id = '00000000-0000-0000-0000-000000000000'::uuid
+-- );
+-- DELETE FROM comments WHERE post_id IN (
+--   SELECT id FROM recovery_posts WHERE user_id = '00000000-0000-0000-0000-000000000000'::uuid
+-- );
+-- DELETE FROM post_tags WHERE post_id IN (
+--   SELECT id FROM recovery_posts WHERE user_id = '00000000-0000-0000-0000-000000000000'::uuid
+-- );
+-- DELETE FROM post_regions WHERE post_id IN (
+--   SELECT id FROM recovery_posts WHERE user_id = '00000000-0000-0000-0000-000000000000'::uuid
+-- );
+-- DELETE FROM recovery_steps WHERE post_id IN (
+--   SELECT id FROM recovery_posts WHERE user_id = '00000000-0000-0000-0000-000000000000'::uuid
+-- );
+-- DELETE FROM recovery_posts WHERE user_id = '00000000-0000-0000-0000-000000000000'::uuid;
+-- DELETE FROM users WHERE id = '00000000-0000-0000-0000-000000000000'::uuid;
