@@ -13,6 +13,7 @@ import type { FilterState } from './PostListFilters'
 import PostListFilters from './PostListFilters'
 import PostListItem from './PostListItem'
 import PostListEmpty from './PostListEmpty'
+import SearchDescription from './SearchDescription'
 
 interface PostListClientProps {
   regions: Array<{ id: number; prefecture: string }>
@@ -34,6 +35,7 @@ export default function PostListClient({ regions, tags, userPhaseLevel }: PostLi
   })
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(false)
+  const [totalCount, setTotalCount] = useState<number | undefined>(undefined)
   const [isPending, startTransition] = useTransition()
 
   // フィルタ変更時に投稿を再読み込み
@@ -66,6 +68,7 @@ export default function PostListClient({ regions, tags, userPhaseLevel }: PostLi
 
           setPosts(result.posts)
           setHasMore(result.hasMore)
+          setTotalCount(result.totalCount)
         } catch (err) {
           if (cancelled) return
           setError(err instanceof Error ? err.message : '投稿の取得に失敗しました')
@@ -146,6 +149,11 @@ export default function PostListClient({ regions, tags, userPhaseLevel }: PostLi
         </div>
       )}
 
+      {/* 検索条件の意味づけテキスト */}
+      {!loading && posts.length > 0 && (
+        <SearchDescription filters={filters} totalCount={totalCount} regions={regions} />
+      )}
+
       {/* 投稿一覧 */}
       {loading && posts.length === 0 ? (
         <div className="text-center py-12">
@@ -158,7 +166,12 @@ export default function PostListClient({ regions, tags, userPhaseLevel }: PostLi
         <>
           <div className="space-y-4">
             {posts.map((post) => (
-              <PostListItem key={post.id} post={post} userPhaseLevel={userPhaseLevel} />
+              <PostListItem 
+                key={post.id} 
+                post={post} 
+                userPhaseLevel={userPhaseLevel}
+                totalCount={totalCount}
+              />
             ))}
           </div>
 

@@ -16,7 +16,20 @@ export interface RecoveryStep {
   order: number
   content: string
   isFailure: boolean
-  failedReason?: string | null // 失敗した理由（「やってはいけない地雷マップ」用）
+  // 失敗理由の軽い構造化（v1）
+  /** 失敗理由のタイプ（選択式、4〜5個のみ）。分析用であって、分類ではない。 */
+  failedReasonType?: string | null
+  /** 
+   * 失敗理由の詳細（自由記述）。
+   * **正の一次データ（今後の基準）**。v2以降はこちらを優先的に使用する。
+   */
+  failedReasonDetail?: string | null
+  /** 
+   * 失敗理由（legacy / 表示互換用）。
+   * 既存データの後方互換性のため残す。新規作成時は使用しない。
+   * UI表示は `failedReasonDetail` を優先し、なければ `failedReason` を表示。
+   */
+  failedReason?: string | null
 }
 
 export interface CreateRecoveryPostInput {
@@ -37,4 +50,10 @@ export interface CreateRecoveryPostInput {
   debtAmount?: number | null // 借金額（万円単位）
   unemployedMonths?: number | null // 無職期間（月単位）
   recoveryMonths?: number | null // 回復期間（月単位）
+
+  // 最初に誤解していたこと（1投稿につき最大1つ、投稿者が後から追記可能）
+  initialMisconception?: string | null
+
+  // draft=下書き, published=公開。新規は draft で保存 or 投稿で published。編集時も同様。
+  status?: 'draft' | 'published'
 }

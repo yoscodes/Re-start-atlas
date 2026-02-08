@@ -72,10 +72,35 @@ export async function getRecoveryPosts(
     const hasMore = data ? data.length > limit : false
     const posts = data ? data.slice(0, limit) : []
 
+    // 条件一致投稿数を取得（検索メタデータ用）
+    // フィルタが有効な場合のみ取得（パフォーマンス考慮）
+    let totalCount: number | undefined = undefined
+    const hasActiveFilters = 
+      problemCategory || 
+      phaseAtPost !== null || 
+      keyword || 
+      (regionIds && regionIds.length > 0) || 
+      (tagNames && tagNames.length > 0)
+
+    if (hasActiveFilters) {
+      const { data: countData, error: countError } = await supabase.rpc('get_recovery_posts_count', {
+        p_region_ids: regionIds && regionIds.length > 0 ? regionIds : null,
+        p_tag_names: tagNames && tagNames.length > 0 ? tagNames : null,
+        p_problem_category: problemCategory,
+        p_phase_at_post: phaseAtPost,
+        p_keyword: keyword || null,
+      })
+
+      if (!countError && countData !== null) {
+        totalCount = countData
+      }
+    }
+
     return {
       success: true,
       posts: posts as any[], // RPC関数の戻り値型をそのまま使用
       hasMore,
+      totalCount,
     }
   } catch (error) {
     console.error('Unexpected error:', error)

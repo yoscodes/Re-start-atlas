@@ -27,4 +27,5 @@ export const createRecoveryPostSchema = z.object({
   steps: z.array(recoveryStepSchema).min(1, 'ステップは最低1つ必要です'),
   regionIds: z.array(z.number().int().positive()).default([]),
   tagNames: z.array(z.string().min(1)).default([]),
+  status: z.enum(['draft', 'published']).optional(),
 })

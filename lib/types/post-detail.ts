@@ -9,6 +9,19 @@ export interface RecoveryStepDetail {
   order: number
   content: string
   isFailure: boolean
+  // 失敗理由の軽い構造化（v1）
+  /** 失敗理由のタイプ（選択式、4〜5個のみ）。分析用であって、分類ではない。 */
+  failedReasonType?: string | null
+  /** 
+   * 失敗理由の詳細（自由記述）。
+   * **正の一次データ（今後の基準）**。v2以降はこちらを優先的に使用する。
+   */
+  failedReasonDetail?: string | null
+  /** 
+   * 失敗理由（legacy / 表示互換用）。
+   * 既存データの後方互換性のため残す。新規作成時は使用しない。
+   * UI表示は `failedReasonDetail` を優先し、なければ `failedReason` を表示。
+   */
   failedReason?: string | null
 }
 
@@ -33,6 +46,10 @@ export interface PostDetail {
   tag_names: string[]
   // 表示制御
   is_summary_only: boolean
+  // 最初に誤解していたこと（1投稿につき最大1つ）
+  initial_misconception: string | null
+  // draft=下書き, published=公開
+  status: 'draft' | 'published'
   // ステップ
   steps: RecoveryStepDetail[]
 }

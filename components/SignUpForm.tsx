@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useSupabaseClient } from '@/lib/supabase/useSupabaseClient'
 import { useRouter } from 'next/navigation'
 import { useToast } from './Toast'
+import type { Database } from '@/lib/supabase/types'
 
 export default function SignUpForm() {
   const [email, setEmail] = useState('')
@@ -44,14 +45,12 @@ export default function SignUpForm() {
 
       // public.usersテーブルにレコードを作成（外部キー制約エラー回避）
       if (data.user) {
-        const { error: userError } = await supabase
-          .from('users')
-          .insert({
-            id: data.user.id,
-            phase_level: 1, // デフォルトはLv1
-          })
-          .select()
-          .single()
+        const userRecord: Database['public']['Tables']['users']['Insert'] = {
+          id: data.user.id,
+          phase_level: 1, // デフォルトはLv1
+        }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase型とDatabase型の不一致を回避
+        const { error: userError } = await supabase.from('users').insert(userRecord as any).select().single()
 
         // 既に存在する場合は無視（ON CONFLICT相当）
         if (userError && userError.code !== '23505') {

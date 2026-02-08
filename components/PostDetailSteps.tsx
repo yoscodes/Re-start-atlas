@@ -61,14 +61,32 @@ export default function PostDetailSteps({ steps, isBlurred = false }: PostDetail
             </p>
 
             {/* 失敗理由（失敗ステップの場合） */}
-            {step.isFailure && step.failedReason && (
+            {step.isFailure && (step.failedReasonDetail || step.failedReason) && (
               <div className="mt-3 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded">
                 <p className="text-sm text-orange-800 dark:text-orange-200 font-medium mb-1">
-                  こうなった理由:
+                  理由:
                 </p>
-                <p className="text-sm text-orange-700 dark:text-orange-300 whitespace-pre-wrap">
-                  {step.failedReason}
-                </p>
+                {/* 
+                  表示優先順位: failedReasonDetail（正の一次データ） > failedReason（legacy）
+                  v2以降は failedReasonDetail を基準とする
+                */}
+                {step.failedReasonDetail ? (
+                  <>
+                    <p className="text-sm text-orange-700 dark:text-orange-300 whitespace-pre-wrap">
+                      {step.failedReasonDetail}
+                    </p>
+                    {step.failedReasonType && (
+                      <p className="text-xs text-orange-600 dark:text-orange-400 mt-2 opacity-75">
+                        ({step.failedReasonType})
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  /* legacy: 既存のfailedReasonを表示（後方互換性のため） */
+                  <p className="text-sm text-orange-700 dark:text-orange-300 whitespace-pre-wrap">
+                    {step.failedReason}
+                  </p>
+                )}
               </div>
             )}
           </div>

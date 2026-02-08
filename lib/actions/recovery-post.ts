@@ -39,8 +39,9 @@ export async function createRecoveryPost(
     }
   }
 
+  const status = input.status ?? 'published'
+
   try {
-    // RPC関数を呼び出し（TABLE型の戻り値）
     const { data, error } = await supabase.rpc('create_recovery_post', {
       p_title: input.title,
       p_summary: input.summary,
@@ -49,13 +50,15 @@ export async function createRecoveryPost(
       p_started_at: input.startedAt || null,
       p_recovered_at: input.recoveredAt || null,
       p_current_status: input.currentStatus,
-      p_steps: input.steps, // JSONBとして渡される
+      p_steps: input.steps,
       p_region_ids: input.regionIds,
-      p_tag_names: input.tagNames, // #なしで渡す（フロント側で処理）
+      p_tag_names: input.tagNames,
       p_age_at_that_time: input.ageAtThatTime || null,
       p_debt_amount: input.debtAmount || null,
       p_unemployed_months: input.unemployedMonths || null,
       p_recovery_months: input.recoveryMonths || null,
+      p_initial_misconception: input.initialMisconception || null,
+      p_status: status,
     })
 
     if (error) {
@@ -75,8 +78,12 @@ export async function createRecoveryPost(
       }
     }
 
-    // OUTパラメータの場合は配列ではなく単一オブジェクト
     const result = Array.isArray(data) ? data[0] : data
+    if (status === 'draft') {
+      console.log('[Draft] 保存された')
+    } else {
+      console.log('[Draft] 公開された')
+    }
     return {
       success: true,
       postId: result.out_post_id || result.post_id,
@@ -122,7 +129,6 @@ export async function updateRecoveryPost(
   }
 
   try {
-    // RPC関数を呼び出し（TABLE型の戻り値）
     const { data, error } = await supabase.rpc('update_recovery_post', {
       p_post_id: postId,
       p_title: input.title,
@@ -132,13 +138,15 @@ export async function updateRecoveryPost(
       p_started_at: input.startedAt || null,
       p_recovered_at: input.recoveredAt || null,
       p_current_status: input.currentStatus,
-      p_steps: input.steps, // JSONBとして渡される
+      p_steps: input.steps,
       p_region_ids: input.regionIds,
-      p_tag_names: input.tagNames, // #なしで渡す（フロント側で処理）
+      p_tag_names: input.tagNames,
       p_age_at_that_time: input.ageAtThatTime || null,
       p_debt_amount: input.debtAmount || null,
       p_unemployed_months: input.unemployedMonths || null,
       p_recovery_months: input.recoveryMonths || null,
+      p_initial_misconception: input.initialMisconception || null,
+      p_status: input.status ?? null,
     })
 
     if (error) {
@@ -155,6 +163,12 @@ export async function updateRecoveryPost(
         success: false,
         error: '投稿IDが取得できませんでした',
       }
+    }
+
+    if (input.status === 'draft') {
+      console.log('[Draft] 保存された')
+    } else if (input.status === 'published') {
+      console.log('[Draft] 公開された')
     }
 
     const result = data[0]
@@ -212,6 +226,7 @@ export async function deleteRecoveryPost(
       }
     }
 
+    console.log('[Draft] 削除された')
     const result = data[0]
     return {
       success: true,

@@ -53,6 +53,12 @@ export default async function DashboardPage() {
           </div>
           <div className="mt-4 flex gap-4 justify-center flex-wrap">
             <Link
+              href="/dashboard/posts"
+              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition"
+            >
+              自分の投稿
+            </Link>
+            <Link
               href="/posts/create"
               className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition"
             >

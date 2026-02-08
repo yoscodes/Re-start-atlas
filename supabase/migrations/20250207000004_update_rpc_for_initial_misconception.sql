@@ -1,68 +1,15 @@
 -- ============================================
--- 投稿モデルに検索特化フィールドを追加
--- SEOで勝てる検索クエリを増やすため
+-- RPC関数の更新: initial_misconception対応
 -- ============================================
 
 -- ============================================
--- 1. カラムの追加
+-- 1. create_recovery_post の更新
 -- ============================================
-ALTER TABLE public.recovery_posts 
-ADD COLUMN IF NOT EXISTS age_at_that_time INTEGER;
+-- パラメータが追加されるため、一度DROPしてから再作成（安全のため）
+DROP FUNCTION IF EXISTS public.create_recovery_post(
+  TEXT, TEXT, problem_category_enum, INTEGER, DATE, DATE, TEXT, JSONB, INTEGER[], TEXT[], INTEGER, INTEGER, INTEGER, INTEGER
+);
 
-ALTER TABLE public.recovery_posts 
-ADD COLUMN IF NOT EXISTS debt_amount INTEGER;
-
-ALTER TABLE public.recovery_posts 
-ADD COLUMN IF NOT EXISTS unemployed_months INTEGER;
-
-ALTER TABLE public.recovery_posts 
-ADD COLUMN IF NOT EXISTS recovery_months INTEGER;
-
--- ============================================
--- 2. インデックスの追加（検索性能向上）
--- ============================================
-
--- 年齢での検索用
-CREATE INDEX IF NOT EXISTS idx_recovery_posts_age_at_that_time 
-ON public.recovery_posts(age_at_that_time) 
-WHERE age_at_that_time IS NOT NULL;
-
--- 借金額での検索用（借金カテゴリの投稿で特に有効）
-CREATE INDEX IF NOT EXISTS idx_recovery_posts_debt_amount 
-ON public.recovery_posts(debt_amount) 
-WHERE debt_amount IS NOT NULL;
-
--- 無職期間での検索用（失業カテゴリの投稿で特に有効）
-CREATE INDEX IF NOT EXISTS idx_recovery_posts_unemployed_months 
-ON public.recovery_posts(unemployed_months) 
-WHERE unemployed_months IS NOT NULL;
-
--- 回復期間での検索用
-CREATE INDEX IF NOT EXISTS idx_recovery_posts_recovery_months 
-ON public.recovery_posts(recovery_months) 
-WHERE recovery_months IS NOT NULL;
-
--- 複合インデックス（カテゴリ + 年齢 + 借金額）
-CREATE INDEX IF NOT EXISTS idx_posts_category_age_debt 
-ON public.recovery_posts(problem_category, age_at_that_time, debt_amount) 
-WHERE problem_category = 'debt' AND age_at_that_time IS NOT NULL AND debt_amount IS NOT NULL;
-
--- 複合インデックス（カテゴリ + 無職期間）
-CREATE INDEX IF NOT EXISTS idx_posts_category_unemployed_months 
-ON public.recovery_posts(problem_category, unemployed_months) 
-WHERE problem_category = 'unemployed' AND unemployed_months IS NOT NULL;
-
--- ============================================
--- 3. コメントの追加（単位を明示）
--- ============================================
-COMMENT ON COLUMN public.recovery_posts.age_at_that_time IS 'その時の年齢（SEO検索用）';
-COMMENT ON COLUMN public.recovery_posts.debt_amount IS '借金額（万円単位、SEO検索用）。注意: 万円単位で保存すること。例: 300万円の場合は300を保存';
-COMMENT ON COLUMN public.recovery_posts.unemployed_months IS '無職期間（月単位、SEO検索用）。例: 1年間の場合は12を保存';
-COMMENT ON COLUMN public.recovery_posts.recovery_months IS '回復期間（月単位、SEO検索用）。例: 2年間の場合は24を保存';
-
--- ============================================
--- 4. RPC関数の更新（create_recovery_post）
--- ============================================
 CREATE OR REPLACE FUNCTION public.create_recovery_post(
   p_title TEXT,
   p_summary TEXT,
@@ -77,7 +24,8 @@ CREATE OR REPLACE FUNCTION public.create_recovery_post(
   p_age_at_that_time INTEGER DEFAULT NULL,
   p_debt_amount INTEGER DEFAULT NULL,
   p_unemployed_months INTEGER DEFAULT NULL,
-  p_recovery_months INTEGER DEFAULT NULL
+  p_recovery_months INTEGER DEFAULT NULL,
+  p_initial_misconception TEXT DEFAULT NULL
 )
 RETURNS TABLE (
   post_id UUID,
@@ -126,15 +74,17 @@ BEGIN
       age_at_that_time,
       debt_amount,
       unemployed_months,
-      recovery_months
+      recovery_months,
+      initial_misconception
     ) VALUES (
       %L,
-      %L, %L, %L::problem_category_enum, %s, %L, %L, %L, %s, %s, %s, %s
+      %L, %L, %L::problem_category_enum, %s, %L, %L, %L, %s, %s, %s, %s, %L
     )
     RETURNING id, created_at',
     auth.uid(),
     p_title, p_summary, p_problem_category, p_phase_at_post, p_started_at, p_recovered_at,
-    p_current_status, p_age_at_that_time, p_debt_amount, p_unemployed_months, p_recovery_months
+    p_current_status, p_age_at_that_time, p_debt_amount, p_unemployed_months, p_recovery_months,
+    p_initial_misconception
   ) INTO v_post_id, v_post_created_at;
 
   -- ステップの作成
@@ -190,8 +140,13 @@ END;
 $$;
 
 -- ============================================
--- 5. RPC関数の更新（update_recovery_post）
+-- 2. update_recovery_post の更新
 -- ============================================
+-- パラメータが追加されるため、一度DROPしてから再作成（安全のため）
+DROP FUNCTION IF EXISTS public.update_recovery_post(
+  UUID, TEXT, TEXT, problem_category_enum, INTEGER, DATE, DATE, TEXT, JSONB, INTEGER[], TEXT[], INTEGER, INTEGER, INTEGER, INTEGER
+);
+
 CREATE OR REPLACE FUNCTION public.update_recovery_post(
   p_post_id UUID,
   p_title TEXT,
@@ -207,7 +162,8 @@ CREATE OR REPLACE FUNCTION public.update_recovery_post(
   p_age_at_that_time INTEGER DEFAULT NULL,
   p_debt_amount INTEGER DEFAULT NULL,
   p_unemployed_months INTEGER DEFAULT NULL,
-  p_recovery_months INTEGER DEFAULT NULL
+  p_recovery_months INTEGER DEFAULT NULL,
+  p_initial_misconception TEXT DEFAULT NULL
 )
 RETURNS TABLE (
   post_id UUID,
@@ -251,7 +207,7 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- 投稿の更新（検索特化フィールドを含む）
+  -- 投稿の更新（initial_misconceptionを含む）
   UPDATE public.recovery_posts
   SET
     title = p_title,
@@ -265,6 +221,7 @@ BEGIN
     debt_amount = p_debt_amount,
     unemployed_months = p_unemployed_months,
     recovery_months = p_recovery_months,
+    initial_misconception = p_initial_misconception,
     updated_at = NOW()
   WHERE id = p_post_id AND user_id = auth.uid()
   RETURNING updated_at INTO v_updated_at;
@@ -329,3 +286,128 @@ BEGIN
   RETURN QUERY SELECT p_post_id, v_updated_at;
 END;
 $$;
+
+-- ============================================
+-- 3. get_recovery_post_detail の更新
+-- ============================================
+-- 戻り値の型が変わるため、一度DROPしてから再作成
+DROP FUNCTION IF EXISTS public.get_recovery_post_detail(UUID, INTEGER);
+
+CREATE OR REPLACE FUNCTION public.get_recovery_post_detail(
+  p_post_id UUID,
+  p_user_phase_level INTEGER DEFAULT NULL
+)
+RETURNS TABLE (
+  -- 投稿基本情報
+  id UUID,
+  title TEXT,
+  summary TEXT,
+  problem_category problem_category_enum,
+  phase_at_post INTEGER,
+  started_at DATE,
+  recovered_at DATE,
+  current_status TEXT,
+  created_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ,
+  -- 検索特化フィールド
+  age_at_that_time INTEGER,
+  debt_amount INTEGER,
+  unemployed_months INTEGER,
+  recovery_months INTEGER,
+  -- 地域・タグ
+  region_names TEXT[],
+  tag_names TEXT[],
+  -- 表示制御
+  is_summary_only BOOLEAN,
+  -- 最初に誤解していたこと
+  initial_misconception TEXT,
+  -- ステップ（JSONB配列として返す）
+  steps JSONB
+)
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  WITH post_data AS (
+    SELECT
+      rp.id,
+      rp.title,
+      rp.summary,
+      rp.problem_category,
+      rp.phase_at_post,
+      rp.started_at,
+      rp.recovered_at,
+      rp.current_status,
+      rp.created_at,
+      rp.updated_at,
+      rp.age_at_that_time,
+      rp.debt_amount,
+      rp.unemployed_months,
+      rp.recovery_months,
+      rp.initial_misconception,
+      -- 地域名
+      COALESCE(
+        array_agg(DISTINCT r.prefecture ORDER BY r.prefecture) FILTER (WHERE r.prefecture IS NOT NULL),
+        ARRAY[]::TEXT[]
+      ) AS region_names,
+      -- タグ名
+      COALESCE(
+        array_agg(DISTINCT t.name ORDER BY t.name) FILTER (WHERE t.name IS NOT NULL),
+        ARRAY[]::TEXT[]
+      ) AS tag_names,
+      -- フェーズ制御（Lv1ユーザーがLv3投稿を見る場合）
+      CASE 
+        WHEN p_user_phase_level = 1 AND rp.phase_at_post = 3 THEN TRUE 
+        ELSE FALSE 
+      END AS is_summary_only
+    FROM public.recovery_posts rp
+    LEFT JOIN public.post_regions pr ON pr.post_id = rp.id
+    LEFT JOIN public.regions r ON r.id = pr.region_id
+    LEFT JOIN public.post_tags pt ON pt.post_id = rp.id
+    LEFT JOIN public.tags t ON t.id = pt.tag_id
+    WHERE rp.id = p_post_id
+      AND rp.deleted_at IS NULL
+    GROUP BY rp.id
+  ),
+  steps_data AS (
+    SELECT
+      rs.post_id,
+      jsonb_agg(
+        jsonb_build_object(
+          'order', rs.step_order,
+          'content', rs.content,
+          'isFailure', rs.is_failure,
+          'failedReasonType', rs.failed_reason_type,
+          'failedReasonDetail', rs.failed_reason_detail,
+          'failedReason', rs.failed_reason
+        )
+        ORDER BY rs.step_order ASC, rs.id ASC
+      ) AS steps
+    FROM public.recovery_steps rs
+    WHERE rs.post_id = p_post_id
+    GROUP BY rs.post_id
+  )
+  SELECT
+    pd.id,
+    pd.title,
+    pd.summary,
+    pd.problem_category,
+    pd.phase_at_post,
+    pd.started_at,
+    pd.recovered_at,
+    pd.current_status,
+    pd.created_at,
+    pd.updated_at,
+    pd.age_at_that_time,
+    pd.debt_amount,
+    pd.unemployed_months,
+    pd.recovery_months,
+    pd.region_names,
+    pd.tag_names,
+    pd.is_summary_only,
+    pd.initial_misconception,
+    COALESCE(sd.steps, '[]'::JSONB) AS steps
+  FROM post_data pd
+  LEFT JOIN steps_data sd ON sd.post_id = pd.id;
+$$;
+
+COMMENT ON FUNCTION public.get_recovery_post_detail IS '投稿詳細取得用RPC関数。7ブロック構成の詳細ページ用に全データを一括取得。フェーズ制御対応。initial_misconception対応。';

@@ -211,6 +211,13 @@ export default function PostListFilters({
         )}
 
         {/* ソート */}
+        {/* 
+          並び替えの思想制限:
+          - 現在: new / old のみ
+          - 将来: 「同じ条件で"最も参考にされた順"」を追加予定
+            - reaction_count, comment_count, step_count を基準に
+            - ただし初期は出さない（数字競争を生むため）
+        */}
         <div>
           <label htmlFor="sort" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             並び順
@@ -223,6 +230,9 @@ export default function PostListFilters({
           >
             <option value="new">新しい順</option>
             <option value="old">古い順</option>
+            {/* 将来追加予定（数字競争を避けるため初期は非表示）:
+                <option value="popular">参考にされた順</option>
+            */}
           </select>
         </div>
 

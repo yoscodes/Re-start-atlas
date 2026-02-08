@@ -58,6 +58,7 @@ export interface GetRecoveryPostsResult {
   success: true
   posts: PostListItem[]
   hasMore: boolean
+  totalCount?: number // 条件一致投稿数（検索メタデータ用）
 } | {
   success: false
   error: string

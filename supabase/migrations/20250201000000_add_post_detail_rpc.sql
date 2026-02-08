@@ -83,6 +83,8 @@ AS $$
           'order', rs.step_order,
           'content', rs.content,
           'isFailure', rs.is_failure,
+          'failedReasonType', rs.failed_reason_type,
+          'failedReasonDetail', rs.failed_reason_detail,
           'failedReason', rs.failed_reason
         )
         ORDER BY rs.step_order ASC, rs.id ASC

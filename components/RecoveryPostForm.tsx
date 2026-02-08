@@ -8,7 +8,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { CreateRecoveryPostInput } from '@/lib/types/recovery-post'
+import { FAILED_REASON_TYPES } from '@/lib/constants/failed-reason-types'
 import ErrorDisplay from './ErrorDisplay'
+import { useToast } from './Toast'
 import {
   getErrorField,
   isValidationError,
@@ -19,6 +21,7 @@ interface RecoveryPostFormProps {
   mode: 'create' | 'update'
   postId?: string
   initialData?: CreateRecoveryPostInput
+  createdAt?: string // 編集時の時差演出用（投稿作成日時）
   onSubmit: (
     data: CreateRecoveryPostInput,
     postId?: string
@@ -26,36 +29,48 @@ interface RecoveryPostFormProps {
     | { success: true; postId: string; createdAt?: string; updatedAt?: string }
     | { success: false; error: string; errorCode?: string }
   >
-  onSuccess?: (postId: string) => void
+  /** create 時のみ。下書きとして保存（toast のみ、遷移なし） */
+  onSubmitDraft?: (data: CreateRecoveryPostInput) => Promise<
+    | { success: true; postId: string; createdAt?: string }
+    | { success: false; error: string; errorCode?: string }
+  >
+  /** postId と保存後の status（draft→公開時は Toast を「投稿を公開しました。」にするため） */
+  onSuccess?: (postId: string, newStatus?: 'draft' | 'published') => void
+}
+
+const emptyFormData: CreateRecoveryPostInput = {
+  title: '',
+  summary: '',
+  problemCategory: 'debt',
+  phaseAtPost: 2,
+  startedAt: null,
+  recoveredAt: null,
+  currentStatus: '',
+  steps: [{ order: 1, content: '', isFailure: false, failedReasonType: null, failedReasonDetail: null }],
+  regionIds: [],
+  tagNames: [],
+  ageAtThatTime: null,
+  debtAmount: null,
+  unemployedMonths: null,
+  recoveryMonths: null,
+  initialMisconception: null,
 }
 
 export default function RecoveryPostForm({
   mode,
   postId,
   initialData,
+  createdAt,
   onSubmit,
+  onSubmitDraft,
   onSuccess,
 }: RecoveryPostFormProps) {
   const router = useRouter()
+  const { showToast } = useToast()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<{ code?: string; message?: string } | null>(null)
   const [formData, setFormData] = useState<CreateRecoveryPostInput>(
-    initialData || {
-      title: '',
-      summary: '',
-      problemCategory: 'debt',
-      phaseAtPost: 2,
-      startedAt: null,
-      recoveredAt: null,
-      currentStatus: '',
-      steps: [{ order: 1, content: '', isFailure: false, failedReason: null }],
-      regionIds: [],
-      tagNames: [],
-      ageAtThatTime: null,
-      debtAmount: null,
-      unemployedMonths: null,
-      recoveryMonths: null,
-    }
+    initialData || { ...emptyFormData }
   )
 
   // 初期データが変更された場合にフォームを更新
@@ -65,13 +80,20 @@ export default function RecoveryPostForm({
     }
   }, [initialData])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  // 編集ページを開いたときのログ（思想検証用・UIなし）
+  useEffect(() => {
+    if (mode === 'update' && postId) {
+      console.log('[PostEdit] 開いた')
+    }
+  }, [mode, postId])
+
+  const runSubmit = async (dataToSend: CreateRecoveryPostInput, isDraftCreate = false) => {
     setError(null)
     setLoading(true)
-
     try {
-      const result = await onSubmit(formData, postId)
+      const result = isDraftCreate && onSubmitDraft
+        ? await onSubmitDraft(dataToSend)
+        : await onSubmit(dataToSend, postId)
 
       if (!result.success) {
         // エラーコードに基づいた処理
@@ -103,11 +125,27 @@ export default function RecoveryPostForm({
         return
       }
 
+      // 思想検証用ログ（内容は記録しない）
+      if (mode === 'update') {
+        console.log('[PostEdit] 保存完了')
+        const hadMisconception = !!initialData?.initialMisconception?.trim()
+        const hasMisconception = !!formData.initialMisconception?.trim()
+        if (!hadMisconception && hasMisconception) {
+          console.log('[PostEdit] initial_misconception 追加された')
+        }
+        const initialStepsCount = initialData?.steps?.length ?? 0
+        if (formData.steps.length !== initialStepsCount) {
+          console.log('[PostEdit] recovery_steps が増減した')
+        }
+      }
+
       // 成功時の処理
-      if (onSuccess) {
+      if (isDraftCreate) {
+        showToast('下書きとして保存しました。')
+        setFormData({ ...emptyFormData })
+      } else if (onSuccess) {
         onSuccess(result.postId)
       } else {
-        // デフォルトのリダイレクト
         router.push(`/posts/${result.postId}`)
         router.refresh()
       }
@@ -125,12 +163,30 @@ export default function RecoveryPostForm({
     }
   }
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const dataToSend: CreateRecoveryPostInput =
+      mode === 'create'
+        ? { ...formData, status: 'published' }
+        : { ...formData, status: formData.status }
+    await runSubmit(dataToSend, false)
+  }
+
+  const handleSubmitWithStatus = async (status: 'draft' | 'published') => {
+    await runSubmit({ ...formData, status }, false)
+  }
+
+  const handleDraftSave = async () => {
+    if (!onSubmitDraft) return
+    await runSubmit({ ...formData, status: 'draft' }, true)
+  }
+
   const addStep = () => {
     setFormData({
       ...formData,
       steps: [
         ...formData.steps,
-        { order: formData.steps.length + 1, content: '', isFailure: false, failedReason: null },
+        { order: formData.steps.length + 1, content: '', isFailure: false, failedReasonType: null, failedReasonDetail: null },
       ],
     })
   }
@@ -165,6 +221,29 @@ export default function RecoveryPostForm({
   const stepsHasError = errorField === 'steps'
   const isPermissionErr = error?.code ? isPermissionError(error.code) : false
   const isDisabled = isPermissionErr && mode === 'update'
+
+  // 時差演出の表示判定（編集時のみ、7日以上経過かつinitial_misconception IS NULL）
+  const [showTimePassedMessage, setShowTimePassedMessage] = useState(false)
+  useEffect(() => {
+    if (mode === 'update' && createdAt && !formData.initialMisconception) {
+      // sessionStorageで一度表示したかチェック
+      const storageKey = `time-passed-message-${postId}`
+      const hasShown = sessionStorage.getItem(storageKey)
+      
+      if (!hasShown) {
+        // 7日以上経過しているかチェック
+        const createdDate = new Date(createdAt)
+        const now = new Date()
+        const daysDiff = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24))
+        
+        if (daysDiff >= 7) {
+          setShowTimePassedMessage(true)
+          // sessionStorageに記録（1回だけ表示）
+          sessionStorage.setItem(storageKey, 'true')
+        }
+      }
+    }
+  }, [mode, createdAt, formData.initialMisconception, postId])
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -379,9 +458,10 @@ export default function RecoveryPostForm({
                     checked={step.isFailure}
                     onChange={(e) => {
                       updateStep(index, 'isFailure', e.target.checked)
-                      // 失敗行動を解除した場合、failedReasonもクリア
+                      // 失敗行動を解除した場合、失敗理由もクリア
                       if (!e.target.checked) {
-                        updateStep(index, 'failedReason', null)
+                        updateStep(index, 'failedReasonType', null)
+                        updateStep(index, 'failedReasonDetail', null)
                       }
                     }}
                     disabled={isDisabled}
@@ -392,22 +472,36 @@ export default function RecoveryPostForm({
                   </span>
                 </label>
                 {step.isFailure && (
-                  <div>
-                    <label htmlFor={`failed-reason-${index}`} className="block text-sm font-medium mb-1 text-red-600 dark:text-red-400">
-                      失敗した理由 *
+                  <div className="space-y-3 mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                    <label htmlFor={`failed-reason-type-${index}`} className="block text-sm font-medium mb-1 text-red-600 dark:text-red-400">
+                      なぜそれは失敗だったと思いますか？
                     </label>
+                    <select
+                      id={`failed-reason-type-${index}`}
+                      value={step.failedReasonType || ''}
+                      onChange={(e) => updateStep(index, 'failedReasonType', e.target.value || null)}
+                      disabled={isDisabled}
+                      className="w-full px-4 py-2 border border-red-300 dark:border-red-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    >
+                      <option value="">選択してください</option>
+                      {FAILED_REASON_TYPES.map((type) => (
+                        <option key={type.value} value={type.value}>
+                          {type.label}
+                        </option>
+                      ))}
+                    </select>
                     <textarea
-                      id={`failed-reason-${index}`}
-                      value={step.failedReason || ''}
-                      onChange={(e) => updateStep(index, 'failedReason', e.target.value)}
+                      id={`failed-reason-detail-${index}`}
+                      value={step.failedReasonDetail || ''}
+                      onChange={(e) => updateStep(index, 'failedReasonDetail', e.target.value)}
                       required={step.isFailure}
                       maxLength={1000}
-                      rows={2}
+                      rows={3}
                       disabled={isDisabled}
-                      className="w-full px-4 py-2 border border-red-300 dark:border-red-700 rounded-lg bg-red-50 dark:bg-red-900/20 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                      placeholder="なぜ失敗したのか、何が問題だったのかを記録してください（例: 借金を返すためにまた借金をした。返済計画が甘かった。）"
+                      className="w-full px-4 py-2 border border-red-300 dark:border-red-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                      placeholder="具体的に何が問題だったのか、どうなったのかを記録してください（例: 借金を返すためにまた借金をした。返済計画が甘く、収入が減った時に返せなくなった。）"
                     />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       この情報は「やってはいけない地雷マップ」として他のユーザーに共有されます
                     </p>
                   </div>
@@ -440,6 +534,44 @@ export default function RecoveryPostForm({
           } ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         />
       </div>
+
+      {/* 「最初に誤解していたこと」（編集時のみ） */}
+      {mode === 'update' && (
+        <div className="border-t border-gray-300 dark:border-gray-700 pt-6 mt-6">
+          <label htmlFor="initialMisconception" className="block text-sm font-medium mb-2">
+            当時、本人が勘違いしていたこと
+          </label>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+            当時は正しいと思っていたが、今振り返るとズレていた認識があれば書いてください。任意。1〜2文。教訓・アドバイスは書かず、当時の認識のズレだけにしてください。
+          </p>
+          <textarea
+            id="initialMisconception"
+            value={formData.initialMisconception || ''}
+            onChange={(e) =>
+              setFormData({ ...formData, initialMisconception: e.target.value || null })
+            }
+            maxLength={1000}
+            rows={3}
+            disabled={isDisabled}
+            className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 ${
+              isDisabled ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+            placeholder="例: 努力量が足りないのが原因だと思い込んでいたが、実際は「続け方」の問題だった。"
+          />
+          {/* 後出し許可文（入力欄の下に配置） */}
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            あとから振り返って「当時、勘違いしていたかも」と思ったことがあれば、追記できます。
+          </p>
+          {/* 時差演出（1回だけ表示） */}
+          {showTimePassedMessage && (
+            <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <p className="text-xs text-blue-700 dark:text-blue-300">
+                時間が経って、見え方が変わった部分があれば、追記しても大丈夫です。
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 検索特化フィールド（SEO用） */}
       <div className="border-t border-gray-300 dark:border-gray-700 pt-6 mt-6">
@@ -567,19 +699,53 @@ export default function RecoveryPostForm({
       </div>
 
       {/* 送信ボタン */}
-      <button
-        type="submit"
-        disabled={loading || isDisabled}
-        className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
-      >
-        {loading
-          ? mode === 'create'
-            ? '投稿中...'
-            : '更新中...'
-          : mode === 'create'
-            ? '投稿を作成'
-            : '投稿を更新'}
-      </button>
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+        {mode === 'create' && onSubmitDraft && (
+          <button
+            type="button"
+            onClick={handleDraftSave}
+            disabled={loading || isDisabled}
+            className="order-2 sm:order-1 text-sm px-4 py-2 text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+          >
+            {loading ? '保存中…' : '下書きとして保存'}
+          </button>
+        )}
+        {mode === 'update' && initialData?.status === 'draft' && (
+          <>
+            <button
+              type="button"
+              onClick={() => handleSubmitWithStatus('draft')}
+              disabled={loading || isDisabled}
+              className="order-2 sm:order-1 text-sm px-4 py-2 text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              {loading ? '保存中…' : '下書きとして保存'}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSubmitWithStatus('published')}
+              disabled={loading || isDisabled}
+              className="order-1 sm:order-2 flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              {loading ? '公開中…' : 'この内容で公開する'}
+            </button>
+          </>
+        )}
+        {(mode === 'create') || (mode === 'update' && initialData?.status !== 'draft') ? (
+          <button
+            type="submit"
+            disabled={loading || isDisabled}
+            className="order-1 sm:order-2 flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+          >
+            {loading
+              ? mode === 'create'
+                ? '投稿中...'
+                : '保存中…'
+              : mode === 'create'
+                ? '投稿を作成'
+                : '変更を保存'}
+          </button>
+        ) : null}
+      </div>
     </form>
   )
 }

@@ -92,13 +92,17 @@ BEGIN
       step_order,
       content,
       is_failure,
+      failed_reason_type,
+      failed_reason_detail,
       failed_reason
     ) VALUES (
       out_post_id,
       (v_step->>'order')::INTEGER,
       v_step->>'content',
       COALESCE((v_step->>'isFailure')::BOOLEAN, FALSE),
-      NULLIF(v_step->>'failedReason', '') -- 空文字列はNULLに変換
+      NULLIF(v_step->>'failedReasonType', ''),
+      NULLIF(v_step->>'failedReasonDetail', ''),
+      NULLIF(v_step->>'failedReason', '') -- 後方互換性のため
     );
   END LOOP;
 

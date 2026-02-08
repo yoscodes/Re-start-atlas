@@ -1,6 +1,7 @@
 /**
  * 投稿作成フォーム
  * RecoveryPostFormのラッパー（Create専用）
+ * 下書き＝保存のみ・toast・遷移なし / 投稿＝published で作成・詳細へ遷移
  */
 
 'use client'
@@ -13,7 +14,10 @@ export default function CreatePostForm() {
     <RecoveryPostForm
       mode="create"
       onSubmit={async (data) => {
-        return await createRecoveryPost(data)
+        return await createRecoveryPost({ ...data, status: data.status ?? 'published' })
+      }}
+      onSubmitDraft={async (data) => {
+        return await createRecoveryPost({ ...data, status: 'draft' })
       }}
     />
   )
