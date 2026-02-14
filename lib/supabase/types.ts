@@ -295,3 +295,6 @@ export type Reaction = Database['public']['Tables']['reactions']['Row']
 
 export type ProblemCategory = Database['public']['Enums']['problem_category']
 export type ReactionType = Database['public']['Enums']['reaction_type']
+
+// 後方互換（DB enum の型名をそのまま参照している箇所向け）
+export type problem_category_enum = ProblemCategory

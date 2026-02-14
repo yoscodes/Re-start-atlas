@@ -79,6 +79,7 @@ export async function getPostDetail(
       is_summary_only: result.is_summary_only || false,
       initial_misconception: result.initial_misconception || null,
       status: (result as { status?: string }).status === 'draft' ? 'draft' : 'published',
+      is_hidden: (result as { is_hidden?: boolean }).is_hidden ?? false,
       steps: steps || [],
     }
 
@@ -285,7 +286,9 @@ export async function getPostForEdit(
     }))
 
     const regionIds = (regionRows || []).map((r: { region_id: number }) => r.region_id)
-    const tagNames = (tagRows || []).map((r: { tags: { name: string } | null }) => r.tags?.name ?? '').filter(Boolean)
+    const tagNames = (tagRows || [])
+      .map((r: { tags: { name: string }[] | null }) => r.tags?.[0]?.name ?? '')
+      .filter(Boolean)
 
     const post: CreateRecoveryPostInput = {
       title: postRow.title,

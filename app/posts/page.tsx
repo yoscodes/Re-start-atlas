@@ -59,7 +59,7 @@ export default async function PostsPage() {
             投稿一覧
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            回復の経験を共有し、お互いに学び合いましょう
+            回復の過程を記録した投稿一覧です
           </p>
         </div>
         {isLoggedIn && (

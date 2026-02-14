@@ -17,6 +17,8 @@ import PostCommonFailures from '@/components/PostCommonFailures'
 import PostInitialMisconception from '@/components/PostInitialMisconception'
 import PostRecommendations from '@/components/PostRecommendations'
 import PhaseUpgradeGuide from '@/components/PhaseUpgradeGuide'
+import PostHiddenWarning from '@/components/PostHiddenWarning'
+import ReportPostLink from '@/components/ReportPostLink'
 import { getPostVisibilityWithRPCFlag } from '@/lib/domain/visibility'
 import { shouldBlurSection, PHASE_VISIBILITY_CONFIG, PHASE_LOCK_MESSAGE } from '@/lib/domain/phase-visibility'
 import type { PhaseLevel } from '@/lib/utils/phase'
@@ -111,6 +113,9 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
       {/* [A] ヘッダー */}
       <PostDetailHeader post={post} />
 
+      {/* 非公開警告（投稿者本人のみ） */}
+      {isAuthor && post.is_hidden && <PostHiddenWarning />}
+
       {/* 詳細ページの"入り口"を1段落で固定 */}
       {/* フェーズに依存しない、説明しすぎない、世界観を一気に揃える */}
       <p className="text-sm text-gray-600 dark:text-gray-400 mb-8 italic">
@@ -193,6 +198,11 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
 
       {/* 似た状況の投稿レコメンド */}
       <PostRecommendations posts={similarPosts} />
+
+      {/* フッター: 通報リンク（静かに） */}
+      <footer className="mt-12 pt-6 border-t border-gray-200 dark:border-gray-700 text-center">
+        <ReportPostLink postId={post.id} />
+      </footer>
     </main>
   )
 }

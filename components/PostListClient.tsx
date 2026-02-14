@@ -6,8 +6,9 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { getRecoveryPosts } from '@/lib/actions/post-list'
-import type { PostListItem } from '@/lib/types/post-list'
+import type { PostListItem as PostListItemType } from '@/lib/types/post-list'
 import type { PhaseLevel } from '@/lib/utils/phase'
 import type { FilterState } from './PostListFilters'
 import PostListFilters from './PostListFilters'
@@ -22,7 +23,8 @@ interface PostListClientProps {
 }
 
 export default function PostListClient({ regions, tags, userPhaseLevel }: PostListClientProps) {
-  const [posts, setPosts] = useState<PostListItem[]>([])
+  const searchParams = useSearchParams()
+  const [posts, setPosts] = useState<PostListItemType[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filters, setFilters] = useState<FilterState>({
@@ -37,6 +39,43 @@ export default function PostListClient({ regions, tags, userPhaseLevel }: PostLi
   const [hasMore, setHasMore] = useState(false)
   const [totalCount, setTotalCount] = useState<number | undefined>(undefined)
   const [isPending, startTransition] = useTransition()
+
+  // URLクエリ（例: /posts?phase=lv1&tags=...）を初期フィルタに反映
+  useEffect(() => {
+    const phaseParam = searchParams.get('phase')
+    const rawTags = [
+      ...searchParams.getAll('tags'),
+      ...(searchParams.get('tags') ? [searchParams.get('tags') as string] : []),
+    ]
+      .flatMap((v) => v.split(','))
+      .map((v) => v.trim())
+      .filter(Boolean)
+
+    const next: Partial<FilterState> = {}
+
+    if (phaseParam) {
+      if (phaseParam === 'lv1') next.phaseAtPost = 1
+      else if (phaseParam === 'lv2') next.phaseAtPost = 2
+      else if (phaseParam === 'lv3') next.phaseAtPost = 3
+      else {
+        const n = parseInt(phaseParam, 10)
+        if (!Number.isNaN(n)) next.phaseAtPost = n
+      }
+    }
+
+    if (rawTags.length > 0) {
+      // tags は「タグ名」そのものを渡す想定（DB側tag.nameと一致させる）
+      next.tagNames = Array.from(new Set(rawTags))
+    }
+
+    // クエリがあるときだけ上書き（既存フィルタ操作を潰さない）
+    if (Object.keys(next).length > 0) {
+      setFilters((prev) => ({
+        ...prev,
+        ...next,
+      }))
+    }
+  }, [searchParams])
 
   // フィルタ変更時に投稿を再読み込み
   useEffect(() => {
@@ -124,12 +163,13 @@ export default function PostListClient({ regions, tags, userPhaseLevel }: PostLi
     loadMorePosts()
   }
 
-  const hasActiveFilters =
+  const hasActiveFilters = Boolean(
     filters.keyword ||
-    filters.problemCategory ||
-    filters.phaseAtPost !== null ||
-    filters.regionIds.length > 0 ||
-    filters.tagNames.length > 0
+      filters.problemCategory ||
+      filters.phaseAtPost !== null ||
+      filters.regionIds.length > 0 ||
+      filters.tagNames.length > 0
+  )
 
   return (
     <div>
@@ -137,6 +177,7 @@ export default function PostListClient({ regions, tags, userPhaseLevel }: PostLi
       <PostListFilters
         regions={regions}
         tags={tags}
+        filters={filters}
         onFilterChange={(newFilters) => {
           setFilters(newFilters)
         }}

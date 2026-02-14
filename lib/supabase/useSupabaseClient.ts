@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from './types'
 
 /**
  * Client Component 用の Supabase クライアントフック。
@@ -11,8 +10,8 @@ import type { Database } from './types'
  * "Access to storage is not allowed from this context" を防ぎます。
  * （ハイドレーション直後の文脈ではストレージがブロックされる環境があるため）
  */
-export function useSupabaseClient(): SupabaseClient<Database> | null {
-  const [client, setClient] = useState<SupabaseClient<Database> | null>(null)
+export function useSupabaseClient(): SupabaseClient | null {
+  const [client, setClient] = useState<SupabaseClient | null>(null)
 
   useEffect(() => {
     const id = setTimeout(() => {

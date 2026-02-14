@@ -117,9 +117,6 @@ export default async function MyPostsPage() {
         >
           ダッシュボードに戻る
         </Link>
-        <p className="mt-8 text-xs text-gray-400 dark:text-gray-500">
-          時間が経って、言葉が変わることがあります。
-        </p>
       </footer>
     </main>
   )

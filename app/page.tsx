@@ -38,20 +38,22 @@ export default async function Home() {
           ) : (
             <div className="space-y-4">
               <p className="text-lg mb-4">
-                Next.jsとSupabaseを使用したWebアプリケーション
+                詰んだ瞬間から、回復までの記録を残す場所です。
               </p>
               <div className="flex gap-4 justify-center">
                 <Link
-                  href="/auth/signin"
-                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+                  href="/onboarding?auto=1"
+                  className="px-4 py-2 bg-gray-900 text-white rounded hover:bg-gray-800 transition"
                 >
-                  ログイン
+                  静かに見る
                 </Link>
+              </div>
+              <div className="pt-2">
                 <Link
-                  href="/auth/signup"
-                  className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition"
+                  href="/auth/signin"
+                  className="text-sm text-gray-500 dark:text-gray-400 underline hover:text-gray-700 dark:hover:text-gray-300 transition"
                 >
-                  サインアップ
+                  すでにアカウントがある場合はログイン
                 </Link>
               </div>
             </div>

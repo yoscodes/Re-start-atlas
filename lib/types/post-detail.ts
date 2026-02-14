@@ -50,6 +50,8 @@ export interface PostDetail {
   initial_misconception: string | null
   // draft=下書き, published=公開
   status: 'draft' | 'published'
+  // 非公開フラグ（管理者・システム主導のみ）
+  is_hidden: boolean
   // ステップ
   steps: RecoveryStepDetail[]
 }

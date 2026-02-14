@@ -49,7 +49,6 @@ export default function SignUpForm() {
           id: data.user.id,
           phase_level: 1, // デフォルトはLv1
         }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase型とDatabase型の不一致を回避
         const { error: userError } = await supabase.from('users').insert(userRecord as any).select().single()
 
         // 既に存在する場合は無視（ON CONFLICT相当）

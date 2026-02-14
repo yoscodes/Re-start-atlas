@@ -4,11 +4,11 @@
 
 'use client'
 
-import { useState } from 'react'
 import type { problem_category_enum } from '@/lib/supabase/types'
 
 interface PostListFiltersProps {
   onFilterChange: (filters: FilterState) => void
+  filters: FilterState
   regions: Array<{ id: number; prefecture: string }>
   tags: Array<{ id: string; name: string }>
 }
@@ -39,21 +39,12 @@ const phaseOptions = [
 
 export default function PostListFilters({
   onFilterChange,
+  filters,
   regions,
   tags,
 }: PostListFiltersProps) {
-  const [filters, setFilters] = useState<FilterState>({
-    keyword: '',
-    problemCategory: null,
-    phaseAtPost: null,
-    regionIds: [],
-    tagNames: [],
-    sort: 'new',
-  })
-
   const handleFilterChange = (updates: Partial<FilterState>) => {
     const newFilters = { ...filters, ...updates }
-    setFilters(newFilters)
     onFilterChange(newFilters)
   }
 
@@ -80,7 +71,6 @@ export default function PostListFilters({
       tagNames: [],
       sort: 'new',
     }
-    setFilters(clearedFilters)
     onFilterChange(clearedFilters)
   }
 

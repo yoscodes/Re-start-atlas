@@ -54,12 +54,14 @@ export interface GetRecoveryPostsParams {
   userPhaseLevel?: number | null
 }
 
-export interface GetRecoveryPostsResult {
-  success: true
-  posts: PostListItem[]
-  hasMore: boolean
-  totalCount?: number // 条件一致投稿数（検索メタデータ用）
-} | {
-  success: false
-  error: string
-}
+export type GetRecoveryPostsResult =
+  | {
+      success: true
+      posts: PostListItem[]
+      hasMore: boolean
+      totalCount?: number // 条件一致投稿数（検索メタデータ用）
+    }
+  | {
+      success: false
+      error: string
+    }

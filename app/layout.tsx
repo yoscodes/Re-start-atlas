@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Restart Atlas",
-  description: "Next.jsとSupabaseを使用したWebアプリケーション",
+  description: "詰んだ瞬間から、回復までの記録を残す場所です。",
 };
 
 export default function RootLayout({

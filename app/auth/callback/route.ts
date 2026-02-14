@@ -17,10 +17,10 @@ export async function GET(request: NextRequest) {
       if (user) {
         await supabase
           .from('users')
-          .insert({
+          .insert(({
             id: user.id,
             phase_level: 1, // デフォルトはLv1
-          })
+          }) as any)
           .select()
           .single()
           .then(({ error: userError }) => {
